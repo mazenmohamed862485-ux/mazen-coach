@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/local/preferences_helper.dart';
-import '../../../lib/core/theme/app_theme.dart';
+import 'package:mavix_coach/core/theme/app_theme.dart';
 
 class ThemeProvider extends ChangeNotifier {
   AppThemeMode _mode = AppThemeMode.light;
