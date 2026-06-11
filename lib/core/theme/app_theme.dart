@@ -171,7 +171,7 @@ class AppTheme {
           statusBarIconBrightness: Brightness.light,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: AppColors.bgCardDark,
         elevation: 0,
         shape: RoundedRectangleBorder(
