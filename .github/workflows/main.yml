@@ -1,34 +1,70 @@
-name: Unzip archive
+name: Build Release APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, master]
 
 permissions:
   contents: write
 
 jobs:
-  unzip:
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract ZIP
-        run: |
-          mkdir -p extracted
-          unzip -o "mavix_flutter_v8.2.0.zip" -d extracted
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      - name: Move extracted files to root
-        run: |
-          shopt -s dotglob
-          mv extracted/* .
-          rm -rf extracted
-          rm -f mavix_flutter_v8.2.0.zip
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.0'
+          channel: stable
+          cache: true
 
-      - name: Commit extracted files
+      - name: Fix intl version constraint
+        run: flutter pub add intl:^0.20.2
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Rename APK with version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Extract ZIP archive" || echo "No changes to commit"
-          git push
+          VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | tr '+' '-')
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/mazen-coach-v${VERSION}.apk
+          echo "APK_NAME=mazen-coach-v${VERSION}.apk" >> $GITHUB_ENV
+          echo "APK_PATH=build/app/outputs/flutter-apk/mazen-coach-v${VERSION}.apk" >> $GITHUB_ENV
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Mazen Coach v${{ github.run_number }}"
+          body: |
+            ## التغييرات في هذا الإصدار
+            - إصلاح مشكلة خطأ الاتصال 302 مع Google Apps Script
+            - تحسين التعامل مع إعادة التوجيه التلقائي من GAS
+            - معالجة أفضل لأخطاء الشبكة والاتصال
+          files: ${{ env.APK_PATH }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
